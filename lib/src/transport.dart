@@ -826,10 +826,9 @@ class Transport extends EnhancedEventEmitter {
     try {
       List<RtpEncodingParameters> normalizedEncodings = [];
 
-      if (arguments.encodings != null && arguments.encodings.isEmpty) {
+      if (arguments.encodings.isEmpty) {
         normalizedEncodings = [];
-      } else if (arguments.encodings != null &&
-          arguments.encodings.isNotEmpty) {
+      } else if (arguments.encodings.isNotEmpty) {
         normalizedEncodings =
             arguments.encodings.map((RtpEncodingParameters encoding) {
           RtpEncodingParameters normalizedEncoding =
@@ -868,23 +867,31 @@ class Transport extends EnhancedEventEmitter {
         }).toList();
       }
 
-      HandlerSendResult sendResult = await _handler.send(HandlerSendOptions(
-        track: arguments.track,
-        encodings: normalizedEncodings,
-        codecOptions: arguments.codecOptions,
-        codec: arguments.codec,
-        stream: arguments.stream,
-      ));
+      HandlerSendResult? sendResult;
+      try {
+        var handlerOptions = HandlerSendOptions(
+          track: arguments.track,
+          encodings: normalizedEncodings,
+          codecOptions: arguments.codecOptions,
+          codec: arguments.codec,
+          stream: arguments.stream,
+        );
+
+        sendResult = await _handler.send(handlerOptions);
+      } catch (err) {
+        _logger.error(err);
+      }
 
       try {
         // This will fill rtpParameters's missing fields with default values.
-        Ortc.validateRtpParameters(sendResult.rtpParameters);
+        Ortc.validateRtpParameters(sendResult!.rtpParameters);
 
-        String id = await safeEmitAsFuture('produce', {
+        var produceFutureRes = await safeEmitAsFuture('produce', {
           'kind': arguments.track.kind,
           'rtpParameters': sendResult.rtpParameters,
           'appData': arguments.appData,
         });
+        String id = produceFutureRes["id"];
 
         Producer producer = Producer(
           id: id,
@@ -910,13 +917,14 @@ class Transport extends EnhancedEventEmitter {
 
         producerCallback?.call(producer);
       } catch (error) {
-        _handler.stopSending(sendResult.localId);
+        _handler.stopSending(sendResult!.localId);
 
         throw error;
       }
-    } catch (error) {
+    } catch (error, stack) {
       // This catch is needed to stop the given track if the command above
       // failed due to closed Transport.
+      _logger.error("$error\n$stack");
       if (arguments.stopTracks) {
         try {
           arguments.track.stop();
@@ -1097,7 +1105,8 @@ class Transport extends EnhancedEventEmitter {
       throw ('not a sending Transport');
     } else if (_maxSctpMessageSize == null) {
       throw ('SCTP not enabled by remote Transport');
-    } if (listeners('connect').isEmpty && _connectionState == 'new') {
+    }
+    if (listeners('connect').isEmpty && _connectionState == 'new') {
       throw ('no "connect" listener set into this transport');
     } else if (listeners('producedata').isEmpty) {
       throw ('no "producedata" listener set into this transport');

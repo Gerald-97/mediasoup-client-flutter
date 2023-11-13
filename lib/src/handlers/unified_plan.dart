@@ -19,24 +19,33 @@ Logger _logger = Logger('Unified plan handler');
 class UnifiedPlan extends HandlerInterface {
   // Handler direction.
   late Direction _direction;
+
   // Remote SDP handler.
   late RemoteSdp _remoteSdp;
+
   // Generic sending RTP parameters for audio and video.
   late Map<RTCRtpMediaType, RtpParameters> _sendingRtpParametersByKind;
+
   // Generic sending RTP parameters for audio and video suitable for the SDP
   // remote answer.
   late Map<RTCRtpMediaType, RtpParameters> _sendingRemoteRtpParametersByKind;
+
   // Initial server side DTLS role. If not 'auto', it will force the opposite
   // value in client side.
   DtlsRole? _forcedLocalDtlsRole;
+
   // RTCPeerConnection instance.
   RTCPeerConnection? _pc;
+
   // Map of RTCTransceivers indexed by MID.
   Map<String, RTCRtpTransceiver> _mapMidTransceiver = {};
+
   // Whether a DataChannel m=application section has been created.
   bool _hasDataChannelMediaSection = false;
+
   // Sending DataChannel id value counter. Incremented for each new DataChannel.
   int _nextSendSctpStreamId = 0;
+
   // Got transport local and remote parameters.
   bool _transportReady = false;
 
@@ -186,7 +195,6 @@ class UnifiedPlan extends HandlerInterface {
 
     String localId =
         options.rtpParameters.mid ?? _mapMidTransceiver.length.toString();
-
     _remoteSdp.receive(
       mid: localId,
       kind: options.kind,
@@ -326,7 +334,7 @@ class UnifiedPlan extends HandlerInterface {
   Future<void> replaceTrack(ReplaceTrackOptions options) async {
     _assertSendRirection();
 
-    if (options.track != null) {
+    if (options.track.id != null) {
       _logger.debug(
           'replaceTrack() [localId:${options.localId}, track.id${options.track.id}');
     } else {
